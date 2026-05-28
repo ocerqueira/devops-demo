@@ -1,0 +1,46 @@
+name: build-and-deploy
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/devops-demo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write          # necessario para publicar no GHCR
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}-backend:latest
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}-frontend:latest
+
+      # Avisa o Portainer para redeployar a stack puxando as imagens novas.
+      # Crie o secret PORTAINER_WEBHOOK_URL com a URL gerada pela stack no Portainer.
+      - name: Trigger Portainer redeploy
+        env:
+          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        if: ${{ env.WEBHOOK != '' }}
+        run: curl -fsS -X POST "$WEBHOOK"

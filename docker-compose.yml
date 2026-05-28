@@ -1,0 +1,48 @@
+# Stack do exemplo: db (Postgres) + backend (FastAPI) + frontend (nginx).
+#
+# IMAGE_PREFIX controla a origem das imagens:
+#   - Local:    deixe o default ("devops-demo") e rode `docker compose up --build`.
+#   - Portainer: defina IMAGE_PREFIX = ghcr.io/SEU_USUARIO/devops-demo
+#                (variavel de ambiente da stack) para puxar as imagens do GHCR.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: demo
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    image: ${IMAGE_PREFIX:-devops-demo}-backend:latest
+    build:
+      context: ./backend
+    environment:
+      # Mude esta versao + push = jeito mais facil de ver o deploy automatico funcionando
+      APP_VERSION: "1.0.0"
+      DATABASE_URL: "postgresql://demo:demo@db:5432/demo"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ${IMAGE_PREFIX:-devops-demo}-frontend:latest
+    build:
+      context: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:

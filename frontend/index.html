@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SYSTEM STATUS // devops-demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e0d;
+      --panel: #11161500;
+      --line: #1c2624;
+      --dim: #4a5a56;
+      --fg: #c8d6d1;
+      --ok: #3fe08b;
+      --ok-glow: rgba(63, 224, 139, 0.45);
+      --bad: #ff5a52;
+      --bad-glow: rgba(255, 90, 82, 0.4);
+      --amber: #ffb454;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'IBM Plex Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* atmosfera: grade sutil + brilho radial + grão */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 44px 44px;
+      opacity: 0.35;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, #000 30%, transparent 100%);
+      pointer-events: none;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(63,224,139,0.07), transparent 70%);
+      pointer-events: none;
+    }
+
+    .console {
+      width: 100%;
+      max-width: 640px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(20,28,26,0.6), rgba(8,12,11,0.6));
+      backdrop-filter: blur(2px);
+      box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.03);
+      position: relative;
+      z-index: 1;
+      animation: boot 0.6s ease-out both;
+    }
+
+    @keyframes boot {
+      from { opacity: 0; transform: translateY(12px) scale(0.99); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      color: var(--dim);
+    }
+    .titlebar .dots { display: flex; gap: 7px; }
+    .titlebar .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: block; }
+    .titlebar .dots i:first-child { background: #2a3633; }
+
+    .body { padding: 28px 22px 24px; }
+
+    .headline {
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(22px, 5vw, 30px);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 4px;
+    }
+
+    .beacon {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--dim);
+      box-shadow: 0 0 0 0 transparent;
+      flex-shrink: 0;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .beacon.up   { background: var(--ok);  box-shadow: 0 0 18px 2px var(--ok-glow);  animation: pulse 2s infinite; }
+    .beacon.down { background: var(--bad); box-shadow: 0 0 18px 2px var(--bad-glow); }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 18px 2px var(--ok-glow); }
+      50%      { box-shadow: 0 0 26px 6px var(--ok-glow); }
+    }
+
+    .sub { color: var(--dim); font-size: 13px; margin: 2px 0 26px 30px; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .cell { background: var(--bg); padding: 16px 16px 14px; }
+    .cell .k { font-size: 11px; letter-spacing: 0.16em; color: var(--dim); text-transform: uppercase; }
+    .cell .v { font-size: 18px; font-weight: 600; margin-top: 7px; word-break: break-word; }
+    .v.ok  { color: var(--ok); }
+    .v.bad { color: var(--bad); }
+    .v.tag { color: var(--amber); }
+
+    .footer {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 20px; font-size: 11px; letter-spacing: 0.1em; color: var(--dim);
+    }
+    .footer .live { display: flex; align-items: center; gap: 7px; }
+    .footer .live::before {
+      content: ""; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--ok); box-shadow: 0 0 8px var(--ok-glow);
+      animation: blink 1.4s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.25; } }
+
+    .err { color: var(--bad); }
+  </style>
+</head>
+<body>
+  <main class="console">
+    <div class="titlebar">
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span>devops-demo · status-console</span>
+      <span id="clock">--:--:--</span>
+    </div>
+
+    <div class="body">
+      <h1 class="headline">
+        <span id="beacon" class="beacon"></span>
+        <span id="state">CONECTANDO…</span>
+      </h1>
+      <p class="sub">endpoint monitorado: <code>/api/status</code></p>
+
+      <div class="grid">
+        <div class="cell">
+          <div class="k">Serviço</div>
+          <div class="v" id="service">—</div>
+        </div>
+        <div class="cell">
+          <div class="k">Versão</div>
+          <div class="v tag" id="version">—</div>
+        </div>
+        <div class="cell">
+          <div class="k">Banco de dados</div>
+          <div class="v" id="db">—</div>
+        </div>
+        <div class="cell">
+          <div class="k">Último check (UTC)</div>
+          <div class="v" id="ts" style="font-size:13px">—</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span class="live">polling a cada 3s</span>
+        <span id="latency">—</span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function setBeacon(up) {
+      const b = $('beacon');
+      b.className = 'beacon ' + (up ? 'up' : 'down');
+      $('state').textContent = up ? 'OPERACIONAL' : 'FORA DO AR';
+      $('state').classList.toggle('err', !up);
+    }
+
+    async function poll() {
+      const t0 = performance.now();
+      try {
+        const res = await fetch('/api/status', { cache: 'no-store' });
+        const data = await res.json();
+        const dt = Math.round(performance.now() - t0);
+
+        setBeacon(data.status === 'ok');
+        $('service').textContent = data.service || '—';
+        $('version').textContent = 'v' + (data.version || '?');
+
+        const dbUp = data.database === 'connected';
+        $('db').textContent = dbUp ? 'connected' : 'disconnected';
+        $('db').className = 'v ' + (dbUp ? 'ok' : 'bad');
+
+        $('ts').textContent = data.timestamp || '—';
+        $('latency').textContent = dt + ' ms';
+      } catch (e) {
+        setBeacon(false);
+        $('service').textContent = $('db').textContent = $('ts').textContent = 'sem resposta';
+        $('db').className = 'v bad';
+        $('latency').textContent = '—';
+      }
+    }
+
+    function tick() {
+      const d = new Date();
+      $('clock').textContent = d.toTimeString().slice(0, 8);
+    }
+
+    setInterval(tick, 1000); tick();
+    poll(); setInterval(poll, 3000);
+  </script>
+</body>
+</html>
