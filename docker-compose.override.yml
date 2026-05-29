@@ -1,0 +1,13 @@
+# Usado SOMENTE no desenvolvimento local. O Docker Compose carrega este arquivo
+# automaticamente quando voce roda `docker compose up --build` na sua maquina.
+# O Portainer NAO usa este arquivo (ele aponta so para docker-compose.yml),
+# entao em producao as imagens vem prontas do GHCR.
+
+services:
+  backend:
+    build:
+      context: ./backend
+
+  frontend:
+    build:
+      context: ./frontend
