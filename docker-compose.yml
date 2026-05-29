@@ -37,8 +37,6 @@ services:
     image: ${IMAGE_PREFIX:-devops-demo}-frontend:latest
     # Mantemos a porta publicada para testar direto via IP enquanto configura o NPM.
     # Quando o dominio no NPM estiver funcionando, pode remover este bloco "ports".
-    ports:
-      - "8080:80"
     networks:
       default: {}
       proxy_net:
